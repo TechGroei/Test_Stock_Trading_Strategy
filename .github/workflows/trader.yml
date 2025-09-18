@@ -1,0 +1,27 @@
+name: Daily Trader Bot
+
+on:
+  schedule:
+    - cron: "30 20 * * 1-5"   # 20:30 UTC Mon–Fri (before NY close)
+  workflow_dispatch:          # allow manual run
+
+jobs:
+  run-trader:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: pip install pandas yfinance lxml requests
+      - name: Run script
+        run: python trader.py
+      - name: Commit & push portfolio
+        run: |
+          git config user.name "trader-bot"
+          git config user.email "bot@example.com"
+          git add portfolio.csv
+          git commit -m "Update portfolio [skip ci]" || echo "No changes"
+          git push
