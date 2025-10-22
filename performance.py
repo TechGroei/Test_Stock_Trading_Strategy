@@ -14,44 +14,45 @@ Features:
     • Overall realized and unrealized P/L
     • Number of positions and total shares held
 - Prints a detailed performance snapshot
+- Tracks weekly performance in weekly_summary.csv
 """
 
 import pandas as pd
 import numpy as np
 from pathlib import Path
 import yfinance as yf
+import glob
 
-DATA_FILE = Path("portfolio.csv")   # CSV created by trader.py
-START_CAPITAL = 5000                # must match trader.py config
+DATA_FILE = Path("portfolio.csv")           # CSV created by trader.py
+PERF_DIR = Path("performance")              # folder with performance snapshots
+SUMMARY_FILE = Path("weekly_summary.csv")
+START_CAPITAL = 5000                        # must match trader.py config
 
+# -------------------- Portfolio Evaluation -------------------- #
 
 def evaluate():
-    """Evaluate portfolio performance with detailed metrics."""
+    """Evaluate current portfolio performance with detailed metrics."""
     if not DATA_FILE.exists():
         print("No portfolio data yet.")
         return
 
-    # Load the portfolio
-    pf = pd.read_csv(DATA_FILE, index_col=0)
+    pf = pd.read_csv(DATA_FILE)
     if pf.empty:
         print("Portfolio empty.")
         return
 
-    # Current cash: assume everything not invested from initial capital
     invested = pf["value"].sum()
     cash = START_CAPITAL - invested
 
-    # Fetch latest market prices
-    symbols = [s.replace('.', '-') for s in pf["symbol"].tolist()]  # ensure Yahoo format
+    symbols = [s.replace('.', '-') for s in pf["symbol"].tolist()]
     prices = yf.download(symbols, period="1d", progress=False, auto_adjust=False)["Adj Close"]
 
-    # Compute current market value for each holding
     current_values = {}
     unrealized_pl = {}
     for sym in pf["symbol"]:
         yf_sym = sym.replace('.', '-')
         if yf_sym not in prices.columns or np.isnan(prices[yf_sym].iloc[-1]):
-            current_price = pf.loc[pf["symbol"] == sym, "avg_price"].values[0]  # fallback to cost
+            current_price = pf.loc[pf["symbol"] == sym, "avg_price"].values[0]
         else:
             current_price = prices[yf_sym].iloc[-1]
 
@@ -61,7 +62,6 @@ def evaluate():
         current_values[sym] = market_val
         unrealized_pl[sym] = market_val - cost
 
-    # Aggregate stats
     total_market_value = sum(current_values.values())
     total_unrealized_pl = sum(unrealized_pl.values())
     total_portfolio_value = cash + total_market_value
@@ -82,11 +82,59 @@ def evaluate():
         pl = unrealized_pl[sym]
         print(f" - {sym}: {shares:.4f} shares | Book: ${cost:.2f} | Market: ${mval:.2f} | P/L: ${pl:.2f}")
 
-    # Optional: compute simple win/loss stats
     winners = [s for s, v in unrealized_pl.items() if v > 0]
     losers = [s for s, v in unrealized_pl.items() if v < 0]
     print(f"\nWinning positions: {len(winners)} | Losing positions: {len(losers)}")
 
+# -------------------- Weekly Performance Summary -------------------- #
+
+def evaluate_weekly():
+    """Aggregate weekly performance from snapshots and save summary CSV."""
+    PERF_DIR.mkdir(exist_ok=True)
+    files = sorted(glob.glob(str(PERF_DIR / "performance_weekly_*.csv")))
+    if not files:
+        print("No weekly snapshots found.")
+        return
+
+    weekly_data = []
+    for f in files:
+        df = pd.read_csv(f)
+        if df.empty:
+            continue
+        row = df.iloc[-1]
+        weekly_data.append({
+            "date": pd.to_datetime(row["date"]),
+            "total_equity": row["total_equity"],
+            "cash": row["cash"],
+            "portfolio_value": row["portfolio_value"]
+        })
+
+    weekly_df = pd.DataFrame(weekly_data).sort_values("date").reset_index(drop=True)
+    weekly_df["prev_total_equity"] = weekly_df["total_equity"].shift(1)
+    weekly_df["weekly_pl"] = weekly_df["total_equity"] - weekly_df["prev_total_equity"]
+    weekly_df["win"] = weekly_df["weekly_pl"] > 0
+    weekly_df["loss"] = weekly_df["weekly_pl"] < 0
+    weekly_df["week_number"] = weekly_df["date"].dt.isocalendar().week
+
+    weekly_summary = weekly_df.groupby("week_number").agg(
+        start_date=("date", "min"),
+        end_date=("date", "max"),
+        weekly_pl=("weekly_pl", "sum"),
+        wins=("win", "sum"),
+        losses=("loss", "sum")
+    ).reset_index()
+    weekly_summary["win_loss"] = weekly_summary["weekly_pl"].apply(
+        lambda x: "WIN" if x > 0 else "LOSS" if x < 0 else "N/A"
+    )
+
+    print("\n=== Weekly Portfolio Summary ===")
+    print(weekly_summary[["week_number","start_date","end_date","weekly_pl","win_loss"]])
+
+    weekly_summary.to_csv(SUMMARY_FILE, index=False)
+    print(f"\nWeekly summary saved to {SUMMARY_FILE}")
+
+# -------------------- Entrypoint -------------------- #
 
 if __name__ == "__main__":
     evaluate()
+    evaluate_weekly()
