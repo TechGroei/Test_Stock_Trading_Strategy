@@ -1,6 +1,3 @@
-"""Small change to test CICD"""
-
-
 """
 trader.py
 ----------
