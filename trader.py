@@ -151,23 +151,29 @@ def run_day():
     end = dt.datetime.now()
     start = end - dt.timedelta(days=7)
     # --- Efficient, non-fragmented price loading ---
+    # --- Robust, non-fragmented price loading ---
     price_data = {}
     failed_tickers = []
 
     for sym in symbols:
         try:
             data = yf.download(sym, start=start, end=end, progress=False, auto_adjust=False)
-            if data.empty or "Adj Close" not in data.columns:
-                print(f"Skipping {sym}: no data.")
+            adj_close = data.get("Adj Close")
+            if adj_close is None or adj_close.empty:
+                print(f"Skipping {sym}: no adjusted close data.")
                 failed_tickers.append(sym)
                 continue
-            price_data[sym] = data["Adj Close"]
+            price_data[sym] = adj_close
         except Exception as e:
             print(f"Failed to get ticker '{sym}' reason: {e}")
             failed_tickers.append(sym)
 
-    # Build the DataFrame in one go
-    prices = pd.DataFrame(price_data) if price_data else pd.DataFrame()
+    # Build DataFrame only if we have at least one valid ticker
+    if price_data:
+        prices = pd.concat(price_data, axis=1)
+    else:
+        prices = pd.DataFrame()
+
 
 
     if prices.empty:
