@@ -17,6 +17,7 @@ Changes:
 • Track buy/sell dates in portfolio.csv
 • Log all trades to trades_history.csv
 • Save daily performance snapshot to performance_weekly_<YYYY-MM-DD>.csv
+• Robust to yfinance download failures
 """
 
 import datetime as dt
@@ -36,9 +37,8 @@ GAIN_PCT = 10
 DATA_FILE = Path("portfolio.csv")
 TRADES_FILE = Path("trades_history.csv")
 PERF_DIR = Path("performance")
-PERF_DIR.mkdir(exist_ok=True)
+PERF_DIR.mkdir(parents=True, exist_ok=True)
 # ==============================================================================
-
 
 # ------------------------------------------------------------------------------ 
 # Utilities
@@ -72,7 +72,7 @@ def save_portfolio(pf: pd.DataFrame):
 def record_trade(symbol, action, qty, price, cash):
     """Append a trade record to trades_history.csv."""
     trade = pd.DataFrame([{
-        "date": dt.date.today(),
+        "date": dt.date.today().isoformat(),
         "symbol": symbol,
         "action": action,
         "quantity": qty,
@@ -147,12 +147,29 @@ def run_day():
     """Run one trading day simulation."""
     symbols = get_sp500_symbols()
 
+    # Fetch last 7 days of adjusted close prices, robust per ticker
     end = dt.datetime.now()
     start = end - dt.timedelta(days=7)
-    prices = yf.download(symbols, start=start, end=end, progress=False, auto_adjust=False)["Adj Close"]
+    prices = pd.DataFrame()
+    failed_tickers = []
+
+    for sym in symbols:
+        try:
+            data = yf.download(sym, start=start, end=end, progress=False, auto_adjust=False)["Adj Close"]
+            if data.empty:
+                failed_tickers.append(sym)
+                continue
+            prices[sym] = data
+        except Exception as e:
+            print(f"Failed to get ticker '{sym}' reason: {e}")
+            failed_tickers.append(sym)
 
     if prices.empty:
         print("No price data downloaded. Exiting.")
+        # still save snapshot to preserve portfolio
+        pf = load_portfolio()
+        cash = START_CAPITAL - pf["value"].sum() if not pf.empty else START_CAPITAL
+        save_performance_snapshot(pf, cash)
         return
 
     latest = prices.iloc[-1]
@@ -193,6 +210,9 @@ def run_day():
     save_portfolio(pf)
     save_performance_snapshot(pf, cash)
     log_day(trades, cash)
+
+    if failed_tickers:
+        print(f"\nFailed downloads ({len(failed_tickers)}): {failed_tickers}")
 
 
 # ------------------------------------------------------------------------------ 

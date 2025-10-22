@@ -9,19 +9,28 @@ jobs:
   run-trader:
     runs-on: ubuntu-latest
     steps:
+      # 1. Checkout repo
       - uses: actions/checkout@v4
+
+      # 2. Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      # 3. Install dependencies
       - name: Install deps
         run: pip install pandas yfinance lxml requests
-      - name: Run script
+
+      # 4. Run trader.py
+      - name: Run trader script
         run: python trader.py
-      - name: Commit & push portfolio
+
+      # 5. Commit & push generated files
+      - name: Commit & push updated CSVs
         run: |
           git config user.name "Trader-Automatic-Run"
           git config user.email "techgroei@gmail.com"
-          git add portfolio.csv
-          git commit -m "Update portfolio [skip ci]" || echo "No changes"
+          git add portfolio.csv trades_history.csv performance/*.csv
+          git commit -m "Update portfolio, trades & performance [skip ci]" || echo "No changes to commit"
           git push
