@@ -1,6 +1,6 @@
 # 🧠 Automated Paper Trading Bot — S&P 500 Strategy
 
-[![Daily Trader](https://github.com/TechGroei/Test_Stock_Trading_Strategy/actions/workflows/trader.yml/badge.svg)](https://github.com/TechGroei/Test_Stock_Trading_Strategy/actions/workflows/trader.yml)
+[![Daily Trader](https://github.com/TechGroei/Test_Stock_Trading_Strategy/actions/workflows/trader.yml/badge.svg)](https://github.com/TechGroei/Test_Stock_Trading_Strategy/actions/workflows/run-trader.yml)
 [![Weekly Performance Check](https://github.com/TechGroei/Test_Stock_Trading_Strategy/actions/workflows/portfolio-performance-check.yml/badge.svg)](https://github.com/TechGroei/Test_Stock_Trading_Strategy/actions/workflows/portfolio-performance-check.yml)
 
 A fully automated **paper-trading bot** simulating daily and weekly trading of S&P 500 stocks.  
