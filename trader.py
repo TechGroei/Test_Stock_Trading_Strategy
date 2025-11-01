@@ -171,8 +171,12 @@ def run_day():
     # Build DataFrame only if we have at least one valid ticker
     if price_data:
         prices = pd.concat(price_data, axis=1)
+        # Flatten multi-index columns if needed (fix for ambiguous Series comparison)
+        if isinstance(prices.columns, pd.MultiIndex):
+            prices.columns = prices.columns.get_level_values(0)
     else:
         prices = pd.DataFrame()
+
 
 
 
