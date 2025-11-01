@@ -17,29 +17,37 @@ Features:
 - Tracks weekly performance in weekly_summary.csv
 """
 
+"""
+performance.py
+---------------
+Enhanced portfolio performance evaluation for the paper-trading bot.
+"""
+
 import pandas as pd
 import numpy as np
 from pathlib import Path
 import yfinance as yf
 import glob
+from datetime import datetime
 
 DATA_FILE = Path("portfolio.csv")           # CSV created by trader.py
 PERF_DIR = Path("performance")              # folder with performance snapshots
 SUMMARY_FILE = Path("weekly_summary.csv")
 START_CAPITAL = 5000                        # must match trader.py config
 
+
 # -------------------- Portfolio Evaluation -------------------- #
 
 def evaluate():
-    """Evaluate current portfolio performance with detailed metrics."""
+    """Evaluate current portfolio performance with detailed metrics and save snapshot."""
     if not DATA_FILE.exists():
         print("No portfolio data yet.")
-        return
+        return None
 
     pf = pd.read_csv(DATA_FILE)
     if pf.empty:
         print("Portfolio empty.")
-        return
+        return None
 
     invested = pf["value"].sum()
     cash = START_CAPITAL - invested
@@ -49,6 +57,7 @@ def evaluate():
 
     current_values = {}
     unrealized_pl = {}
+
     for sym in pf["symbol"]:
         yf_sym = sym.replace('.', '-')
         if yf_sym not in prices.columns or np.isnan(prices[yf_sym].iloc[-1]):
@@ -75,6 +84,7 @@ def evaluate():
     print(f"Total unrealized P/L: ${total_unrealized_pl:.2f} ({total_unrealized_pl / invested * 100:.2f}%)")
     print(f"Number of positions held: {len(pf)}")
     print("\nIndividual holdings:")
+
     for sym in pf["symbol"]:
         shares = pf.loc[pf["symbol"] == sym, "shares"].values[0]
         cost = pf.loc[pf["symbol"] == sym, "avg_price"].values[0] * shares
@@ -85,6 +95,28 @@ def evaluate():
     winners = [s for s, v in unrealized_pl.items() if v > 0]
     losers = [s for s, v in unrealized_pl.items() if v < 0]
     print(f"\nWinning positions: {len(winners)} | Losing positions: {len(losers)}")
+
+    # Save a weekly snapshot CSV
+    PERF_DIR.mkdir(exist_ok=True)
+    now = datetime.utcnow()
+    week_label = f"{now.year}-W{now.isocalendar().week:02d}"
+    snapshot_file = PERF_DIR / f"performance_weekly_{week_label}.csv"
+
+    snapshot_data = pd.DataFrame([{
+        "date": now.date(),
+        "week_number": now.isocalendar().week,
+        "cash": cash,
+        "portfolio_value": total_market_value,
+        "total_equity": total_portfolio_value,
+        "total_unrealized_pl": total_unrealized_pl,
+        "winning_positions": len(winners),
+        "losing_positions": len(losers)
+    }])
+    snapshot_data.to_csv(snapshot_file, index=False)
+    print(f"\nSaved weekly snapshot to {snapshot_file}")
+
+    return snapshot_file
+
 
 # -------------------- Weekly Performance Summary -------------------- #
 
@@ -133,8 +165,9 @@ def evaluate_weekly():
     weekly_summary.to_csv(SUMMARY_FILE, index=False)
     print(f"\nWeekly summary saved to {SUMMARY_FILE}")
 
+
 # -------------------- Entrypoint -------------------- #
 
 if __name__ == "__main__":
-    evaluate()
+    snapshot = evaluate()
     evaluate_weekly()

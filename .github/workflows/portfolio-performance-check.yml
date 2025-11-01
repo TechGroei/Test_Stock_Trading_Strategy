@@ -1,29 +1,35 @@
-name: Run portfolio performance check
+name: Portfolio Performance Weekly Check
 
 on:
-  workflow_dispatch:        # Allows manual trigger from GitHub UI
+  schedule:
+    - cron: "0 22 * * 5"  # Every Friday 22:00 UTC (after trading week ends)
+  workflow_dispatch:
 
 jobs:
   run-performance:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout your repo so performance.py & portfolio.csv are available
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 3️⃣ Install dependencies (pandas/numpy/etc.)
       - name: Install requirements
         run: |
           python -m pip install --upgrade pip
           pip install pandas yfinance lxml requests
 
-      # 4️⃣ Run the script
       - name: Run performance.py
         run: python performance.py
+
+      - name: Commit & Push performance results
+        run: |
+          git config user.name "Portfolio-Performance-Bot"
+          git config user.email "techgroei@gmail.com"
+          git add performance/ weekly_summary.csv
+          git commit -m "Weekly performance update [skip ci]" || echo "No changes to commit"
+          git push
