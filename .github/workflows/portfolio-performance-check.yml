@@ -2,7 +2,7 @@ name: Portfolio Performance Weekly Check
 
 on:
   schedule:
-    - cron: "0 21 * * 5"  # Every Friday 21:00 UTC (after trading week ends)
+    - cron: "0 22 * * 5"  # Every Friday 22:00 UTC (after trading week ends)
   workflow_dispatch:
 
 jobs:
