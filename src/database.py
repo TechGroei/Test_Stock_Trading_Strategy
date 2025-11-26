@@ -90,13 +90,24 @@ class Database:
             
             records = pf.to_dict('records')
             for record in records:
+                # Convert numpy types to Python native types
+                if 'shares' in record:
+                    record['shares'] = float(record['shares'])
+                if 'avg_price' in record:
+                    record['avg_price'] = float(record['avg_price'])
+                if 'value' in record:
+                    record['value'] = float(record['value'])
+                
                 # Handle date conversion if they are strings
                 if isinstance(record.get('last_buy_date'), str):
                     record['last_buy_date'] = datetime.strptime(record['last_buy_date'], '%Y-%m-%d').date()
-                if isinstance(record.get('last_sell_date'), str) and record.get('last_sell_date'):
-                    record['last_sell_date'] = datetime.strptime(record['last_sell_date'], '%Y-%m-%d').date()
-                elif record.get('last_sell_date') == "":
+                
+                # Handle last_sell_date - convert NaN/empty to None
+                last_sell = record.get('last_sell_date')
+                if pd.isna(last_sell) or last_sell == "" or last_sell == "NaN":
                     record['last_sell_date'] = None
+                elif isinstance(last_sell, str):
+                    record['last_sell_date'] = datetime.strptime(last_sell, '%Y-%m-%d').date()
                     
                 p = Portfolio(**{k: v for k, v in record.items() if k in Portfolio.__table__.columns.keys()})
                 session.add(p)
@@ -119,9 +130,9 @@ class Database:
             trade = Trade(
                 symbol=symbol,
                 action=action,
-                quantity=qty,
-                price=price,
-                cash_after=cash
+                quantity=float(qty),  # Convert numpy types to Python float
+                price=float(price),
+                cash_after=float(cash)
             )
             session.add(trade)
             session.commit()
