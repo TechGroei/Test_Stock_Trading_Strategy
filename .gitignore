@@ -42,14 +42,6 @@ htmlcov/
 .env
 .env.local
 
-# Data files (keep structure with .gitkeep)
-data/*.csv
-!data/.gitkeep
-
-# Performance snapshots (keep structure with .gitkeep)
-performance/*.csv
-!performance/.gitkeep
-
 # OS
 .DS_Store
 Thumbs.db
