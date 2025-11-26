@@ -52,7 +52,18 @@ def get_sp500_symbols():
     resp.raise_for_status()
 
     tables = pd.read_html(StringIO(resp.text))
-    symbols = tables[0]["Symbol"].head(UNIVERSE_SIZE).tolist()
+    
+    # Find the table with "Symbol" column
+    df = None
+    for t in tables:
+        if "Symbol" in t.columns:
+            df = t
+            break
+            
+    if df is None:
+        raise ValueError("Could not find S&P 500 table with 'Symbol' column")
+        
+    symbols = df["Symbol"].head(UNIVERSE_SIZE).tolist()
     symbols = [s.replace('.', '-') for s in symbols]
     return symbols
 
